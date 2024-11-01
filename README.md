@@ -59,7 +59,11 @@ while true; do
 done
 ```
 ```bash
-chmod +x /path/to/restart_server.sh
+chmod +x restart_server.sh
+screen -S server_session
+./restart_server.sh
+Ctrl A + then D
+screen -r server_session
 ```
 
 
