@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <random>
 #include <sstream>
+#include <mutex>
+#include <set>
 
 using namespace std;
 
@@ -19,12 +21,14 @@ private:
     int sockfd;
     struct sockaddr_in servaddr;
     socklen_t len;
-    atomic<int> clientCounter;  // Atomic counter for unique client IDs
+    atomic<int> clientCounter;  // Number of active clients
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution;
+    std::mutex clientMutex;
+    std::set<int> activeClients;  // Set to manage active client IDs
 
 public:
-    UDPServer() : clientCounter(1), distribution(1, 10) {  // Random distribution for 1-10 words per send
+    UDPServer() : clientCounter(0), distribution(1, 10) {  // Random distribution for 1-10 words per send
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         if (sockfd < 0) {
             perror("Socket creation failed");
@@ -49,6 +53,12 @@ public:
     }
 
     void serveClient(sockaddr_in cliaddr, const string &filename, int clientID) {
+        {
+            lock_guard<mutex> lock(clientMutex);
+            activeClients.insert(clientID);
+            clientCounter = activeClients.size();
+        }
+
         string clientIp = inet_ntoa(cliaddr.sin_addr);
 
         ifstream file(filename);
@@ -88,7 +98,28 @@ public:
             //usleep(500000);  // Optional delay for demonstration
         }
 
+        const char* end_msg = "END";
+        sendto(sockfd, end_msg, strlen(end_msg), 0, (const struct sockaddr *)&cliaddr, len);
+        cout << "[DEBUG SERVER] Sent final END marker." << endl;
         cout << "[DEBUG SERVER] File transfer complete for client " << clientID << " (IP: " << clientIp << ")" << endl;
+
+        // Remove client from active list after serving
+        {
+            lock_guard<mutex> lock(clientMutex);
+            activeClients.erase(clientID);
+            clientCounter = activeClients.size();
+        }
+    }
+
+    int getNextClientID() {
+        lock_guard<mutex> lock(clientMutex);
+
+        // Find the smallest unused client ID
+        int newClientID = 0;
+        while (activeClients.count(newClientID) != 0) {
+            newClientID++;
+        }
+        return newClientID;
     }
 
     void run() {
@@ -100,7 +131,8 @@ public:
             int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&cliaddr, &len);
             buffer[n] = '\0';
 
-            int clientID = clientCounter.fetch_add(1);  // Assign unique client ID
+            // Assign the next available client ID
+            int clientID = getNextClientID();
             string clientIp = inet_ntoa(cliaddr.sin_addr);
             cout << "[DEBUG SERVER] Received request from client " << clientID << " (IP: " << clientIp << "): '" << buffer << "'" << endl;
 

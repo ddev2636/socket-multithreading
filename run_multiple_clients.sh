@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Number of clients to run
-num_clients=3
+num_clients=5
 # Array of files to request
-filenames=("demo_file.txt" "demo_file.txt" "demo_file.txt")
+filenames=("demo_file.txt" "demo_file.txt" "demo_file.txt" "demo_file.txt" "demo_file.txt")
 
 # Loop to start multiple clients
 for ((i=0; i<num_clients; i++)); do

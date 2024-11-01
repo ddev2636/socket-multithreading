@@ -107,8 +107,10 @@ public:
             }
             newFile.close();
         }
-
-        close(sockfd);
+        cout<<"[DEBUG CLIENT] before socket close"<<endl;
+        close(sockfd);        
+        cout<<"[DEBUG CLIENT] after socket close"<<endl;
+        exit(EXIT_SUCCESS); // Exit the program successfully
     }
 };
 
